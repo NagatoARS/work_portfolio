@@ -1,0 +1,36 @@
+﻿Прочитав задание, я решил написать 2 варианта решений. Первый-который пришёл в голову сразу-cte+join. В сте добавил столбцы сурс, чтобы потом было проще соединять через джоины+исходя из условия задания (таблица1-это сурс А, таблица 2-сурсБ, а таблица 3 и то и другое). Нужная дата выбиралась в каждой сте. Решил использовать функцию extract и функцию now. 
+Второй-это вариант, который был дан в качестве подсказки-через Union. Нули в запросах-это недостающие столбцы, так как по условию для выполнения Union необходимо иметь одинаковое количество столбцов. Запросы с юнионами были использованы в качестве подзапроса для from. 
+Вариант 1
+with cte_1 as (select Date, 'A' as "Source", Campaign, Ad,
+SUM(Click) as "Total_cliks", SUM(Cost) as "Total_costs" from table1
+where extract(month from date)=extract(month from now()) and extract(year from date)=extract(year from now()) 
+group by Date, Campaign, Ad)
+
+, cte_2 as (select date(DateTime) as "Date", 'B' as "Source", Campaign, Ad,
+SUM(Click) as "Total_cliks", SUM(Cost) as "Total_costs" from table2
+where extract(month from date)=extract(month from now()) and extract(year from date)=extract(year from now()) 
+group by date(DateTime), Campaign, Ad)
+
+
+, cte_3 as (select Date, Source, Campaign, Ad,
+SUM(install) as "Total_insts", SUM( purchase) as "Total_purchs" from table3
+where extract(month from date)=extract(month from now()) and extract(year from date)=extract(year from now()) 
+group by Date, Source, Campaign, Ad)
+
+select cte3.Date, cte3.Source, cte3.Campaign, cte3.Ad, SUM(cte1.Total_cliks)+SUM(cte2.Total_cliks) as "Final_clicks", SUM(cte1.Total_costs)+SUM(cte2.Total_costs) as "Final_cost", SUM(cte3.Total_insts), SUM(cte3.Total_purchs) from cte_3 cte3
+left join cte_2 cte2 on cte3.Date=cte2.Date and cte3.Source=cte2.Source and cte3.Campaign=cte2.Campaign and cte3.Ad=cte2.Ad and cte3.Source='B'
+left join cte_1 cte1 on cte3.Date=cte1.Date and cte3.Source=cte1.Source and cte3.Campaign=cte1.Campaign and cte3.Ad=cte1.Ad and cte3.Source='A'
+group by cte3.Date, cte3.Source, cte3.Campaign, cte3.Ad
+
+Вариант 2
+select Date, Source, Campaign, Ad, SUM(Click), SUM(Cost), SUM(install), SUM(purchase) from
+((select Date, 'A' as "Source", Campaign, Ad, Impression, Click, Cost,0 as"install",0 as"purchase" from table1 
+where extract(month from date)=extract(month from now()) and extract(year from date)=extract(year from now())) 
+union all
+(select date(DateTime) as "Date", 'B' as "Source", Campaign, Ad, Impression, Click, Cost,0 as"install",0 as"purchase" from table2
+where extract(month from date)=extract(month from now()) and extract(year from date)=extract(year from now()))
+union all
+(select Date, Source, Campaign, Ad,0 as"Impression",0 as"Click",0 as"Cost",install, purchase from table3
+where extract(month from date)=extract(month from now()) and extract(year from date)=extract(year from now()))) big_table
+group by  Date, Source, Campaign, Ad
+
