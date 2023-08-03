@@ -1,0 +1,35 @@
+Таблица battles_players содержит данные об участии игроков в боях:
+- start_dt [DATETIME] – дата и время начала боя;
+- arena_id [INT] – уникальный id боя;
+- player_id [INT] – уникальный id игрока;
+- team_id [INT] – id команды (1 или 2);
+- battle_map [VARCHAR] – название карты, на которой проходил бой;
+- vehicle_id [INT] – уникальный id танка;
+- duration [INT] – длительность боя в секундах;
+- is_win [BOOLEAN] – выиграл игрок или проиграл;
+- is_alive [BOOLEAN] – дожил игрок до конца боя или нет;
+- damage_dealt [INT] – суммарный урон, нанесенный игроком;
+- kills_made [INT] – число танков противника, которые уничтожил игрок.
+
+Таблица vehicles содержит данные обо всех танках:
+- id [INT] – уникальный id танка;
+- name [VARCHAR] – название танка;
+- nation [VARCHAR] – нация, к которой относится танк;
+- class [VARCHAR] – класс техники (“HT” – тяжелый, “MT” – средний, “LT” – легкий, “АТ” – ПТ-САУ)
+- type [VARCHAR] – тип техники (“tree” – из дерева, “collectible” – коллекционный, “premium” - премиум)
+
+Напишите SQL-запрос для ответа на вопрос, в какой доле боев команда-победитель имеет преимущество по числу тяжелых танков.
+РЕШЕНИЕ
+with cte_1 as (Select arena_id, team_id, sum(case when is_win=’True’ then 1 else 0 end) as total_wins, sum(case when class=’HT’ then 1 else 0 end) as total_ht from battles_players bp
+join vehicles v on bp.vehicle_id=v.id
+group by arena_id, team_id )
+,cte_2 as (Select arena_id, team_id, total_ht from cte_1
+where total_wins>0)
+, cte_3 as (select arena_id , team_id, total_ht from cte_1
+where total_wins=0)
+select count(cte2.arena_id) as total_win_battles, ((count(cte2.arena_id)::numeric)/(select count(distinct arena_id) as total_battles from cte_1))*100 as wins_share from cte_2 cte2
+join cte_3 cte3 on cte2.arena_id=cte3.arena_id
+where cte2.total_ht>cte3.total_ht
+
+ПРИМЕЧАНИЕ: Данный расчёт сделан по следующей формуле=количество победных боёв/количество боёв в целом, согласно ТЗ. Также можно поделить количество победных боёв по нашим условиям (по условиям ТЗ), на общее количество победных боёв (там, где наши условия не выполняются). В PostgreSQL numeric=float. Numeric был использован для получения нецелого числа (по синтаксису PostgreSQL). Для округления можно использовать функцию round(). 
+ 
